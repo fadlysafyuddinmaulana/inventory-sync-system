@@ -102,18 +102,41 @@ return [
         'sqlsrv' => [
             'driver' => 'sqlsrv',
             'url' => env('DB_URL'),
-            'host' => env('DB_HOST', 'localhost'),
-            'port' => env('DB_PORT', '1433'),
-            'database' => env('DB_DATABASE', 'laravel'),
-            'username' => env('DB_USERNAME', 'root'),
-            'password' => env('DB_PASSWORD', ''),
+            'host' => env('DB_SQLSRV_HOST', 'localhost'),
+            'port' => env('DB_SQLSRV_PORT', '1433'),
+            'database' => env('DB_SQLSRV_DATABASE', 'laravel'),
+            'username' => env('DB_SQLSRV_USERNAME', 'sa'),
+            'password' => env('DB_SQLSRV_PASSWORD', ''),
             'charset' => env('DB_CHARSET', 'utf8'),
             'prefix' => '',
             'prefix_indexes' => true,
             // 'encrypt' => env('DB_ENCRYPT', 'yes'),
             // 'trust_server_certificate' => env('DB_TRUST_SERVER_CERTIFICATE', 'false'),
+            'options' => [
+                PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+                PDO::SQLSRV_ATTR_ENCODING => PDO::SQLSRV_ENCODING_UTF8,
+            ],
+        ],
+        'pgsql_odoo' => [
+            'driver' => 'pgsql',
+            'host' => env('DB_ODOO_HOST'),
+            'database' => env('DB_ODOO_DATABASE'),
+            'username' => env('DB_ODOO_USERNAME'),
+            'password' => env('DB_ODOO_PASSWORD'),
         ],
 
+        'sqlsrv_backup' => [
+            'driver' => 'sqlsrv',
+            'host' => env('DB_SQLSRV_HOST', '127.0.0.1'),
+            'port' => env('DB_SQLSRV_PORT', '1433'),
+            'database' => env('DB_SQLSRV_DATABASE', 'backup_inventory_db'),
+            'username' => env('DB_SQLSRV_USERNAME', 'sa'),
+            'password' => env('DB_SQLSRV_PASSWORD', ''),
+            'options' => [
+                PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+                PDO::SQLSRV_ATTR_ENCODING => PDO::SQLSRV_ENCODING_UTF8,
+            ],
+        ],
     ],
 
     /*

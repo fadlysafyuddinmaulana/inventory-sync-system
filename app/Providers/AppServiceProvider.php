@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use App\Database\SqlServerConnector;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -11,14 +12,8 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
-    }
-
-    /**
-     * Bootstrap any application services.
-     */
-    public function boot(): void
-    {
-        //
+        $this->app->bind('db.connector.sqlsrv', static function () {
+            return new SqlServerConnector();
+        });
     }
 }
