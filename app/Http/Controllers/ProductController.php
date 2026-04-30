@@ -27,7 +27,7 @@ class ProductController extends Controller
             GROUP BY pp.id, pt.name, pt.list_price;
         ");
 
-        return view('products', compact('products'));
+        return view('products-bootstrap', compact('products'));
     }
 
     /**
