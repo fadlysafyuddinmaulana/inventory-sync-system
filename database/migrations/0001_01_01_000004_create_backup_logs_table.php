@@ -20,6 +20,7 @@ return new class extends Migration
                 $table->integer('product_count')->default(0);
                 $table->integer('stock_count')->default(0);
                 $table->integer('warehouse_count')->default(0);
+                $table->integer('total_data')->default(0);
                 $table->string('backup_size')->nullable(); // e.g., "245 MB"
                 $table->enum('status', ['pending', 'success', 'failed'])->default('pending');
                 $table->text('message')->nullable();

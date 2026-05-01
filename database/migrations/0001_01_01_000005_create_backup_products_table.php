@@ -17,8 +17,8 @@ return new class extends Migration
                 $table->id();
                 $table->unsignedBigInteger('product_id');
                 $table->string('name');
-                $table->string('default_code')->nullable();
-                $table->decimal('list_price', 12, 2)->nullable();
+                $table->string('code')->nullable();
+                $table->decimal('price', 12, 2)->nullable();
                 $table->timestamps();
             });
         }

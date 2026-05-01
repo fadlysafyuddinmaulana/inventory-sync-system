@@ -14,7 +14,7 @@ class StockMove extends Model
         'product_id',
         'location_id',
         'location_dest_id',
-        'quantity_done',
+        'product_uom_qty',
         'state',
         'create_date',
         'picking_id',

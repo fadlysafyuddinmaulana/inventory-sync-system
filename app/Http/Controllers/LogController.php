@@ -18,17 +18,17 @@ class LogController extends Controller
         $logs = BackupLog::query();
 
         if ($statusFilter) {
-            $logs->where('status', '=', $statusFilter);
+            $logs = $logs->where('status', '=', $statusFilter);
         }
 
         if ($dateFilter) {
-            $logs->whereDate('created_at', '=', $dateFilter);
+            $logs = $logs->whereDate('created_at', '=', $dateFilter, 'and');
         }
 
         $logs = $logs->orderByDesc('created_at')
-            ->paginate(20);
+            ->paginate(20, ['*'], 'page', $request->input('page', 1));
 
-        return view('backup-logs-bootstrap', [
+        return view('backup.logs', [
             'logs' => $logs,
             'statusFilter' => $statusFilter,
             'dateFilter' => $dateFilter,

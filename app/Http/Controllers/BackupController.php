@@ -7,6 +7,7 @@ use App\Models\Odoo\ProductTemplate;
 use App\Models\Odoo\StockQuant;
 use App\Models\Odoo\StockWarehouse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 
 class BackupController extends Controller
@@ -16,11 +17,11 @@ class BackupController extends Controller
      */
     public function index()
     {
-        $lastBackup = BackupLog::where('status', '=', 'success')
+        $lastBackup = BackupLog::where('status', 'success')
             ->orderByDesc('created_at')
             ->first();
 
-        return view('backup-data-bootstrap', [
+        return view('backup.index', [
             'lastBackup' => $lastBackup,
         ]);
     }
@@ -30,34 +31,58 @@ class BackupController extends Controller
      */
     public function backup(Request $request)
     {
-        $backupLog = BackupLog::create([
-            'status' => 'pending',
-            'started_at' => now(),
-        ]);
+        $backupLog = new BackupLog();
+        $backupLog->status = 'pending';
+        $backupLog->started_at = Carbon::now();
+        $backupLog->save();
 
         try {
             // Backup products from Odoo to SQL Server
-            $products = ProductTemplate::all();
+            $products = DB::connection('pgsql_odoo')->select("
+                SELECT 
+                    pp.id,
+                    pt.name,
+                    pp.default_code,
+                    pt.list_price
+                FROM product_product pp
+                JOIN product_template pt ON pp.product_tmpl_id = pt.id
+                ORDER BY pt.name
+            ");
+
             $productCount = $this->backupProducts($products);
 
             // Backup stocks from Odoo to SQL Server
-            $stocks = StockQuant::with(['product', 'location.warehouse'])->get();
+            $stocks = DB::connection('pgsql_odoo')->select("
+                SELECT 
+                    sq.id,
+                    pp.id as product_id,
+                    pt.name as product_name,
+                    sl.id as location_id,
+                    sl.name as location_name,
+                    sw.id as warehouse_id,
+                    sw.name as warehouse_name,
+                    sq.quantity,
+                    sq.reserved_quantity
+                FROM stock_quant sq
+                LEFT JOIN product_product pp ON sq.product_id = pp.id
+                LEFT JOIN product_template pt ON pp.product_tmpl_id = pt.id
+                LEFT JOIN stock_location sl ON sq.location_id = sl.id
+                LEFT JOIN stock_warehouse sw ON sl.warehouse_id = sw.id
+                ORDER BY sw.name, sl.name
+            ");
+
             $stockCount = $this->backupStocks($stocks);
 
             // Count warehouses
-            $warehouseCount = StockWarehouse::query()->count('*');
-
-            // Calculate backup size
-            $backupSize = $this->calculateBackupSize($productCount, $stockCount);
+            $warehouseCount = DB::connection('pgsql_odoo')
+                ->table('stock_warehouse')
+                ->count();
 
             // Update backup log
             $backupLog->update([
                 'status' => 'success',
-                'product_count' => $productCount,
-                'stock_count' => $stockCount,
-                'warehouse_count' => $warehouseCount,
-                'backup_size' => $backupSize,
-                'completed_at' => now(),
+                'total_data' => $productCount + $stockCount,
+                'completed_at' => Carbon::now(),
                 'message' => 'Backup berhasil dilakukan',
             ]);
 
@@ -68,13 +93,12 @@ class BackupController extends Controller
                     'product_count' => $productCount,
                     'stock_count' => $stockCount,
                     'warehouse_count' => $warehouseCount,
-                    'backup_size' => $backupSize,
                 ],
             ]);
         } catch (\Exception $e) {
             $backupLog->update([
                 'status' => 'failed',
-                'completed_at' => now(),
+                'completed_at' => Carbon::now(),
                 'message' => 'Backup gagal: ' . $e->getMessage(),
             ]);
 
@@ -88,7 +112,7 @@ class BackupController extends Controller
     /**
      * Backup products to SQL Server
      */
-    private function backupProducts(\Illuminate\Support\Collection $products)
+    private function backupProducts(array $products): int
     {
         $backupData = [];
 
@@ -96,19 +120,20 @@ class BackupController extends Controller
             $backupData[] = [
                 'product_id' => $product->id,
                 'name' => $product->name,
-                'default_code' => $product->default_code,
-                'list_price' => $product->list_price,
-                'created_at' => now(),
-                'updated_at' => now(),
+                'code' => $product->default_code,
+                'price' => $product->list_price,
+                'created_at' => Carbon::now(),
             ];
         }
 
         // Clear existing backup data
         DB::connection('sqlsrv_backup')->table('backup_products')->truncate();
 
-        // Insert backup data
+        // Insert backup data in chunks
         if (!empty($backupData)) {
-            DB::connection('sqlsrv_backup')->table('backup_products')->insert($backupData);
+            foreach (array_chunk($backupData, 100) as $chunk) {
+                DB::connection('sqlsrv_backup')->table('backup_products')->insert($chunk);
+            }
         }
 
         return count($backupData);
@@ -117,51 +142,35 @@ class BackupController extends Controller
     /**
      * Backup stocks to SQL Server
      */
-    private function backupStocks(\Illuminate\Support\Collection $stocks)
+    private function backupStocks(array $stocks): int
     {
         $backupData = [];
 
         foreach ($stocks as $stock) {
             $backupData[] = [
                 'product_id' => $stock->product_id,
-                'product_name' => $stock->product->template->name ?? 'N/A',
+                'product_name' => $stock->product_name,
                 'location_id' => $stock->location_id,
-                'location_name' => $stock->location->name ?? 'N/A',
-                'warehouse_id' => $stock->location->warehouse_id,
-                'warehouse_name' => $stock->location->warehouse->name ?? 'N/A',
+                'location_name' => $stock->location_name,
+                'warehouse_id' => $stock->warehouse_id,
+                'warehouse_name' => $stock->warehouse_name,
                 'quantity' => $stock->quantity,
-                'reserved_quantity' => $stock->reserved_quantity,
-                'created_at' => now(),
-                'updated_at' => now(),
+                'reserved_quantity' => $stock->reserved_quantity ?? 0,
+                'created_at' => Carbon::now(),
             ];
         }
 
         // Clear existing backup data
         DB::connection('sqlsrv_backup')->table('backup_stocks')->truncate();
 
-        // Insert backup data
+        // Insert backup data in chunks
         if (!empty($backupData)) {
-            DB::connection('sqlsrv_backup')->table('backup_stocks')->insert($backupData);
+            foreach (array_chunk($backupData, 100) as $chunk) {
+                DB::connection('sqlsrv_backup')->table('backup_stocks')->insert($chunk);
+            }
         }
 
         return count($backupData);
-    }
-
-    /**
-     * Calculate backup size
-     */
-    private function calculateBackupSize(int $productCount, int $stockCount)
-    {
-        // Rough estimation: ~1KB per product and ~500B per stock entry
-        $estimatedSize = ($productCount * 1024) + ($stockCount * 512);
-
-        if ($estimatedSize < 1024 * 1024) {
-            return round($estimatedSize / 1024, 2) . ' KB';
-        } elseif ($estimatedSize < 1024 * 1024 * 1024) {
-            return round($estimatedSize / (1024 * 1024), 2) . ' MB';
-        }
-
-        return round($estimatedSize / (1024 * 1024 * 1024), 2) . ' GB';
     }
 
     /**

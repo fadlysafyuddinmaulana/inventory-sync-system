@@ -1,175 +1,110 @@
 @extends('layouts.app')
 
-@section('title', 'Log Backup')
-@section('page-title', 'Log Backup')
-
-@section('breadcrumb')
-    <nav aria-label="breadcrumb">
-        <ol class="breadcrumb mb-0">
-            <li class="breadcrumb-item"><a href="{{ route('dashboard') }}">Dashboard</a></li>
-            <li class="breadcrumb-item active">Log Backup</li>
-        </ol>
-    </nav>
-@endsection
+@section('page_title', 'Backup Logs')
 
 @section('content')
-    <div class="card shadow-sm border-0">
-        <!-- Header -->
-        <div class="card-header">
-            <h5 class="mb-0">
-                <i class="fas fa-history"></i> Log Backup
-            </h5>
-            <p class="text-muted small mt-2 mb-0">Riwayat lengkap semua proses backup</p>
+    <div class="row mb-3">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">Filter Logs</h3>
+                </div>
+                <div class="card-body">
+                    <form method="GET" action="{{ route('backup-logs') }}" class="form-inline">
+                        <div class="form-group mr-3">
+                            <label for="status" class="mr-2">Status:</label>
+                            <select name="status" id="status" class="form-control">
+                                <option value="">All Status</option>
+                                <option value="success" {{ request('status') == 'success' ? 'selected' : '' }}>Success
+                                </option>
+                                <option value="pending" {{ request('status') == 'pending' ? 'selected' : '' }}>Pending
+                                </option>
+                                <option value="failed" {{ request('status') == 'failed' ? 'selected' : '' }}>Failed</option>
+                            </select>
+                        </div>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-search"></i> Filter
+                        </button>
+                    </form>
+                </div>
+            </div>
         </div>
+    </div>
 
-        <!-- Filters -->
-        <div class="card-body border-bottom">
-            <div class="row g-3">
-                <div class="col-md-6">
-                    <input type="date" class="form-control form-control-sm">
+    <div class="row">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">Backup Logs</h3>
                 </div>
-                <div class="col-md-6">
-                    <select class="form-select form-select-sm">
-                        <option>Semua Status</option>
-                        <option>Sukses</option>
-                        <option>Gagal</option>
-                        <option>Dalam Proses</option>
-                    </select>
-                </div>
-            </div>
-        </div>
-
-        <!-- Timeline -->
-        <div class="card-body">
-            <!-- Log Entry - Success -->
-            <div class="d-flex mb-4">
-                <div class="me-3">
-                    <span class="badge bg-success rounded-circle p-2">
-                        <i class="fas fa-check"></i>
-                    </span>
-                </div>
-                <div class="flex-grow-1">
-                    <h6 class="mb-1">Backup Sukses</h6>
-                    <small class="text-muted d-block mb-2">29 Apr 2026, 10:30:45</small>
-                    <div class="alert alert-success alert-sm py-2 px-3" role="alert">
-                        <small>
-                            <strong>Database berhasil di-backup.</strong> Ukuran file: 245 MB <br>
-                            Durasi: 2 menit 15 detik
-                        </small>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table id="backupLogsTable" class="table table-striped table-hover" style="width:100%">
+                            <thead class="table-dark">
+                                <tr>
+                                    <th>Date</th>
+                                    <th>Status</th>
+                                    <th>Total Data</th>
+                                    <th>Message</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @forelse($logs as $log)
+                                    <tr>
+                                        <td>{{ $log->created_at->format('M d, Y H:i:s') }}</td>
+                                        <td>
+                                            <span
+                                                class="badge {{ $log->status == 'success' ? 'badge-success' : ($log->status == 'pending' ? 'badge-warning' : 'badge-danger') }}">
+                                                {{ ucfirst($log->status) }}
+                                            </span>
+                                        </td>
+                                        <td>{{ number_format($log->total_data) }}</td>
+                                        <td>{{ $log->message }}</td>
+                                        <td>
+                                            <a href="{{ route('backup-logs.show', $log->id) }}" class="btn btn-sm btn-info">
+                                                <i class="fas fa-eye"></i>
+                                            </a>
+                                        </td>
+                                    </tr>
+                                @empty
+                                    <tr>
+                                        <td class="text-center text-muted">No logs</td>
+                                        <td class="text-center text-muted">-</td>
+                                        <td class="text-center text-muted">-</td>
+                                        <td class="text-center text-muted">-</td>
+                                        <td class="text-center text-muted">-</td>
+                                    </tr>
+                                @endforelse
+                            </tbody>
+                        </table>
                     </div>
-                </div>
-            </div>
 
-            <!-- Log Entry - Success -->
-            <div class="d-flex mb-4">
-                <div class="me-3">
-                    <span class="badge bg-success rounded-circle p-2">
-                        <i class="fas fa-check"></i>
-                    </span>
-                </div>
-                <div class="flex-grow-1">
-                    <h6 class="mb-1">Backup Sukses</h6>
-                    <small class="text-muted d-block mb-2">28 Apr 2026, 10:30:12</small>
-                    <div class="alert alert-success alert-sm py-2 px-3" role="alert">
-                        <small>
-                            <strong>Database berhasil di-backup.</strong> Ukuran file: 243 MB <br>
-                            Durasi: 2 menit 8 detik
-                        </small>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Log Entry - Warning -->
-            <div class="d-flex mb-4">
-                <div class="me-3">
-                    <span class="badge bg-warning rounded-circle p-2">
-                        <i class="fas fa-exclamation"></i>
-                    </span>
-                </div>
-                <div class="flex-grow-1">
-                    <h6 class="mb-1">Backup dengan Peringatan</h6>
-                    <small class="text-muted d-block mb-2">27 Apr 2026, 10:28:33</small>
-                    <div class="alert alert-warning alert-sm py-2 px-3" role="alert">
-                        <small>
-                            <strong>Backup selesai namun terdapat peringatan.</strong> Ukuran file lebih besar dari
-                            biasanya: 280 MB
-                        </small>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Log Entry - Failed -->
-            <div class="d-flex mb-4">
-                <div class="me-3">
-                    <span class="badge bg-danger rounded-circle p-2">
-                        <i class="fas fa-times"></i>
-                    </span>
-                </div>
-                <div class="flex-grow-1">
-                    <h6 class="mb-1">Backup Gagal</h6>
-                    <small class="text-muted d-block mb-2">26 Apr 2026, 10:30:00</small>
-                    <div class="alert alert-danger alert-sm py-2 px-3" role="alert">
-                        <small>
-                            <strong>Proses backup gagal.</strong> Ruang penyimpanan tidak mencukup. Mohon bersihkan
-                            penyimpanan dan coba lagi.
-                        </small>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Log Entry - Success -->
-            <div class="d-flex">
-                <div class="me-3">
-                    <span class="badge bg-success rounded-circle p-2">
-                        <i class="fas fa-check"></i>
-                    </span>
-                </div>
-                <div class="flex-grow-1">
-                    <h6 class="mb-1">Backup Manual</h6>
-                    <small class="text-muted d-block mb-2">25 Apr 2026, 15:45:22</small>
-                    <div class="alert alert-success alert-sm py-2 px-3" role="alert">
-                        <small>
-                            <strong>Backup manual berhasil dilakukan.</strong> Ukuran file: 240 MB
-                        </small>
-                    </div>
+                    {{ $logs->links() }}
                 </div>
             </div>
         </div>
     </div>
 @endsection
-</div>
-</div>
 
-<!-- Log Entry -->
-<div class="flex gap-4">
-    <div class="flex flex-col items-center">
-        <div class="w-4 h-4 rounded-full bg-red-500 border-4 border-red-100 dark:border-red-900"></div>
-        <div class="w-0.5 h-20 bg-gray-200 dark:bg-gray-700 mt-2"></div>
-    </div>
-    <div class="pb-6">
-        <h4 class="text-sm font-semibold text-gray-900 dark:text-white">Backup Gagal</h4>
-        <p class="text-xs text-gray-600 dark:text-gray-400 mt-1">27 Apr 2026, 02:00:05</p>
-        <div
-            class="mt-2 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded text-xs text-red-800 dark:text-red-200">
-            <p>Backup gagal: Ruang penyimpanan tidak mencukup</p>
-            <p class="mt-1">Error Code: STORAGE_FULL</p>
-        </div>
-    </div>
-</div>
+@section('extra_css')
+    <link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/jquery.dataTables.min.css">
+    <link rel="stylesheet" href="https://cdn.datatables.net/responsive/2.5.0/css/responsive.dataTables.min.css">
+@endsection
 
-<!-- Log Entry -->
-<div class="flex gap-4">
-    <div class="flex flex-col items-center">
-        <div class="w-4 h-4 rounded-full bg-blue-500 border-4 border-blue-100 dark:border-blue-900"></div>
-    </div>
-    <div>
-        <h4 class="text-sm font-semibold text-gray-900 dark:text-white">Backup Dimulai</h4>
-        <p class="text-xs text-gray-600 dark:text-gray-400 mt-1">26 Apr 2026, 02:00:00</p>
-        <div
-            class="mt-2 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded text-xs text-blue-800 dark:text-blue-200">
-            <p>Proses backup dimulai secara otomatis</p>
-        </div>
-    </div>
-</div>
-</div>
-</div>
+@section('extra_js')
+    <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
+    <script src="https://cdn.datatables.net/responsive/2.5.0/js/dataTables.responsive.min.js"></script>
+    <script>
+        $(document).ready(function() {
+            $('#backupLogsTable').DataTable({
+                responsive: true,
+                pageLength: 20,
+                columnDefs: [{
+                    orderable: false,
+                    targets: -1
+                }]
+            });
+        });
+    </script>
+@endsection

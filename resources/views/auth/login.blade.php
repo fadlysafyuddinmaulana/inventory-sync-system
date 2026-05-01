@@ -1,138 +1,206 @@
 <!DOCTYPE html>
-<html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
+<html lang="en">
 
 <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Login - {{ config('app.name', 'Laravel') }}</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - Inventory Sync System</title>
 
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet"
-        integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
+    <!-- Bootstrap CSS -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
     <style>
+        html,
         body {
-            min-height: 100vh;
-            background:
-                radial-gradient(circle at top left, rgba(13, 110, 253, 0.18), transparent 30%),
-                radial-gradient(circle at bottom right, rgba(32, 201, 151, 0.14), transparent 28%),
-                linear-gradient(135deg, #0f172a 0%, #111827 42%, #1f2937 100%);
+            height: 100%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         }
 
-        .login-shell {
-            min-height: 100vh;
+        body {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
         }
 
-        .login-panel {
-            backdrop-filter: blur(14px);
-            background: rgba(255, 255, 255, 0.94);
-            border: 1px solid rgba(255, 255, 255, 0.35);
-            box-shadow: 0 24px 70px rgba(15, 23, 42, 0.28);
+        .login-container {
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+            overflow: hidden;
+            max-width: 400px;
+            width: 100%;
         }
 
-        .brand-mark {
-            width: 52px;
-            height: 52px;
-            border-radius: 16px;
-            background: linear-gradient(135deg, #0d6efd, #20c997);
-            display: grid;
-            place-items: center;
-            color: #fff;
-            font-weight: 700;
-            letter-spacing: .04em;
+        .login-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 30px 20px;
+            text-align: center;
+            color: white;
+        }
+
+        .login-header h1 {
+            font-size: 28px;
+            margin: 0;
+            font-weight: bold;
+        }
+
+        .login-header p {
+            font-size: 14px;
+            margin: 5px 0 0 0;
+            opacity: 0.9;
+        }
+
+        .login-body {
+            padding: 40px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: #333;
+        }
+
+        .form-control {
+            height: 44px;
+            border-radius: 6px;
+            border: 1px solid #ddd;
+            padding: 10px 15px;
+            font-size: 14px;
+            transition: all 0.3s ease;
+        }
+
+        .form-control:focus {
+            border-color: #667eea;
+            box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
+        }
+
+        .btn-login {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border: none;
+            height: 44px;
+            border-radius: 6px;
+            font-weight: 600;
+            font-size: 16px;
+            color: white;
+            transition: all 0.3s ease;
+            width: 100%;
+        }
+
+        .btn-login:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+            color: white;
+        }
+
+        .alert {
+            border-radius: 6px;
+            margin-bottom: 20px;
+        }
+
+        .text-center-custom {
+            text-align: center;
+            margin-top: 15px;
+        }
+
+        .text-center-custom a {
+            color: #667eea;
+            text-decoration: none;
+            font-weight: 500;
+        }
+
+        .text-center-custom a:hover {
+            text-decoration: underline;
+        }
+
+        .input-group-text {
+            border: 1px solid #ddd;
+            background: transparent;
+            color: #667eea;
+            cursor: pointer;
         }
     </style>
 </head>
 
 <body>
-    <div class="container login-shell d-flex align-items-center justify-content-center py-5">
-        <div class="row w-100 justify-content-center align-items-stretch g-0" style="max-width: 1040px;">
-            <div class="col-lg-5 d-none d-lg-flex align-items-stretch">
-                <div class="text-white p-5 rounded-start-4 w-100 d-flex flex-column justify-content-between"
-                    style="background: linear-gradient(160deg, rgba(13,110,253,0.95), rgba(32,201,151,0.85));">
-                    <div>
-                        <div class="brand-mark mb-4">IS</div>
-                        <h1 class="display-6 fw-semibold mb-3">Sistem Monitoring Inventory & Backup Data</h1>
-                        <p class="lead text-white-75 mb-0">Akses cepat ke produk, stok warehouse, pergerakan barang,
-                            dan backup data dalam satu panel yang rapi.</p>
-                    </div>
-                    <div class="small text-white-50">
-                        Dibangun dengan Bootstrap CDN agar lebih ringan dan konsisten.
-                    </div>
+    <div class="login-container">
+        <div class="login-header">
+            <i class="fas fa-boxes" style="font-size: 40px; margin-bottom: 10px;"></i>
+            <h1>Inventory Sync</h1>
+            <p>Sistem Manajemen Inventori</p>
+        </div>
+
+        <div class="login-body">
+            @if ($errors->any())
+                <div class="alert alert-danger alert-dismissible fade show">
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    <strong>Login Gagal!</strong>
+                    @foreach ($errors->all() as $error)
+                        <div>{{ $error }}</div>
+                    @endforeach
                 </div>
-            </div>
+            @endif
 
-            <div class="col-12 col-lg-7">
-                <div class="login-panel rounded-4 h-100 p-4 p-md-5">
-                    <div class="mb-4">
-                        <div class="d-flex align-items-center gap-3 mb-3 d-lg-none">
-                            <div class="brand-mark">IS</div>
-                            <div>
-                                <h1 class="h3 mb-0 fw-bold">{{ config('app.name', 'Laravel') }}</h1>
-                                <div class="text-muted">Sistem Monitoring Inventory & Backup Data</div>
-                            </div>
-                        </div>
-                        <h2 class="h3 fw-bold text-dark mb-2 d-none d-lg-block">Masuk ke akun Anda</h2>
-                        <p class="text-secondary mb-0">Gunakan username atau email yang terdaftar untuk melanjutkan.</p>
-                    </div>
+            <form action="{{ route('login.post') }}" method="POST">
+                @csrf
 
-                    @if ($errors->any())
-                        <div class="alert alert-danger border-0 shadow-sm">
-                            {{ $errors->first('username') ?? 'Username atau password tidak sesuai.' }}
-                        </div>
-                    @endif
-
-                    @if (session('success'))
-                        <div class="alert alert-success border-0 shadow-sm">
-                            {{ session('success') }}
-                        </div>
-                    @endif
-
-                    <div class="alert alert-primary border-0 shadow-sm">
-                        <div class="fw-semibold mb-1">Demo Credentials</div>
-                        <div>admin / admin123</div>
-                        <div>admin@example.com / admin123</div>
-                        <div>user / user123</div>
-                    </div>
-
-                    <form method="POST" action="{{ route('login.post') }}" class="mt-4">
-                        @csrf
-
-                        <div class="form-floating mb-3">
-                            <input type="text" class="form-control @error('username') is-invalid @enderror"
-                                id="username" name="username" value="{{ old('username') }}" placeholder="Username"
-                                required autofocus>
-                            <label for="username">Username</label>
-                            @error('username')
-                                <div class="invalid-feedback">{{ $message }}</div>
-                            @enderror
-                        </div>
-
-                        <div class="form-floating mb-3">
-                            <input type="password" class="form-control @error('password') is-invalid @enderror"
-                                id="password" name="password" placeholder="Password" required>
-                            <label for="password">Password</label>
-                            @error('password')
-                                <div class="invalid-feedback">{{ $message }}</div>
-                            @enderror
-                        </div>
-
-                        <div class="d-flex justify-content-between align-items-center mb-4">
-                            <div class="form-check">
-                                <input class="form-check-input" type="checkbox" value="1" id="remember"
-                                    name="remember">
-                                <label class="form-check-label" for="remember">Ingat saya</label>
-                            </div>
-                            <span class="text-muted small">Akses aman via session Laravel</span>
-                        </div>
-
-                        <button type="submit" class="btn btn-primary btn-lg w-100 fw-semibold">Login</button>
-                    </form>
+                <div class="form-group">
+                    <label for="email">Email</label>
+                    <input type="email" class="form-control @error('email') is-invalid @enderror" id="email"
+                        name="email" value="{{ old('email') }}" placeholder="admin@example.com" required autofocus>
+                    @error('email')
+                        <div class="invalid-feedback">{{ $message }}</div>
+                    @enderror
                 </div>
+
+                <div class="form-group">
+                    <label for="password">Password</label>
+                    <div class="input-group">
+                        <input type="password" class="form-control @error('password') is-invalid @enderror"
+                            id="password" name="password" placeholder="Masukkan password" required>
+                        <span class="input-group-text" onclick="togglePassword()">
+                            <i class="fas fa-eye" id="toggleIcon"></i>
+                        </span>
+                    </div>
+                    @error('password')
+                        <div class="invalid-feedback d-block">{{ $message }}</div>
+                    @enderror
+                </div>
+
+                <button type="submit" class="btn btn-login">
+                    <i class="fas fa-sign-in-alt"></i> Login
+                </button>
+            </form>
+
+            <div class="text-center-custom">
+                <small>Demo Credentials:</small><br>
+                <small style="color: #666;">Email: <strong>admin@example.com</strong></small><br>
+                <small style="color: #666;">Password: <strong>admin123</strong></small>
             </div>
         </div>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"
-        integrity="sha384-YvpcrYf0Y3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdlE7N7N6jI5l1xgq" crossorigin="anonymous">
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        function togglePassword() {
+            const passwordInput = document.getElementById('password');
+            const toggleIcon = document.getElementById('toggleIcon');
+
+            if (passwordInput.type === 'password') {
+                passwordInput.type = 'text';
+                toggleIcon.classList.remove('fa-eye');
+                toggleIcon.classList.add('fa-eye-slash');
+            } else {
+                passwordInput.type = 'password';
+                toggleIcon.classList.remove('fa-eye-slash');
+                toggleIcon.classList.add('fa-eye');
+            }
+        }
     </script>
 </body>
 

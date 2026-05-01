@@ -3,9 +3,17 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Builder;
 
+/**
+ * @method static Builder where($column, $operator = null, $value = null, $boolean = 'and')
+ * @method static Builder whereDate($column, $operator = null, $value = null, $boolean = 'and')
+ * @method static Builder orderByDesc($column)
+ * @method static |null first($columns = ['*'])
+ */
 class BackupLog extends Model
 {
+    // Backup logs are stored in SQL Server data warehouse
     protected $connection = 'sqlsrv_backup';
     protected $table = 'backup_logs';
 
@@ -14,6 +22,7 @@ class BackupLog extends Model
         'stock_count',
         'warehouse_count',
         'backup_size',
+        'total_data',
         'status',
         'message',
         'started_at',

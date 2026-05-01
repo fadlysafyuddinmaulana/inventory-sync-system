@@ -1,178 +1,195 @@
 <!DOCTYPE html>
-<html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
+<html lang="en">
 
 <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>{{ config('app.name', 'Laravel') }} - @yield('title')</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>@yield('title', 'Inventory Sync System')</title>
 
     <!-- Bootstrap CSS -->
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <!-- Bootstrap Icons -->
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet">
-    <!-- Font Awesome Icons (for backward compatibility) -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
 
-    <!-- Custom Bootstrap Theme -->
-    <link href="{{ asset('css/bootstrap-theme.css') }}" rel="stylesheet">
+    <!-- AdminLTE CSS -->
+    <link rel="stylesheet" href="{{ asset('asset/AdminLTE-3.2.0/dist/css/adminlte.min.css') }}">
+    <link rel="stylesheet" href="{{ asset('asset/AdminLTE-3.2.0/plugins/fontawesome-free/css/all.min.css') }}">
 
-    @stack('css')
+    <!-- Custom CSS -->
+    <style>
+        body {
+            background-color: #ecf0f5;
+        }
+
+        .main-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+
+        .sidebar-dark-primary .nav-sidebar>.nav-item>.nav-link.active,
+        .sidebar-light-primary .nav-sidebar>.nav-item>.nav-link.active {
+            background-color: #667eea;
+            border-left-color: #667eea;
+        }
+
+        .content-wrapper {
+            background-color: #ecf0f5;
+        }
+    </style>
+
+    @yield('extra_css')
 </head>
 
-<body>
-    <div class="d-flex min-vh-100">
-        <!-- Sidebar Navigation -->
-        <nav class="sidebar d-flex flex-column" style="width: 260px; position: fixed; height: 100vh; overflow-y: auto;">
-            <!-- Logo Section -->
-            <div class="logo text-center py-4 px-3">
-                <h5 class="mb-1 text-white fw-bold">{{ config('app.name', 'Inventory') }}</h5>
-                <small class="text-muted">Management System</small>
-            </div>
+<body class="hold-transition sidebar-mini layout-fixed">
+    <div class="wrapper">
+        <!-- Navbar -->
+        <nav class="main-header navbar navbar-expand navbar-white navbar-light">
+            <!-- Left navbar links -->
+            <ul class="navbar-nav">
+                <li class="nav-item">
+                    <a class="nav-link" data-widget="pushmenu" href="#" role="button"><i
+                            class="fas fa-bars"></i></a>
+                </li>
+                <li class="nav-item d-none d-sm-inline-block">
+                    <a href="{{ route('dashboard') }}" class="nav-link">Home</a>
+                </li>
+            </ul>
 
-            <!-- Navigation Links -->
-            <div class="flex-grow-1 px-0 py-3">
-                <a href="{{ route('dashboard') }}"
-                    class="nav-link d-flex align-items-center gap-3 {{ request()->routeIs('dashboard') ? 'active' : '' }}">
-                    <i class="bi bi-graph-up"></i>
-                    <span>Dashboard</span>
-                </a>
-
-                <a href="{{ route('products') }}"
-                    class="nav-link d-flex align-items-center gap-3 {{ request()->routeIs('products*') ? 'active' : '' }}">
-                    <i class="bi bi-box"></i>
-                    <span>Produk</span>
-                </a>
-
-                <a href="{{ route('stock-warehouse') }}"
-                    class="nav-link d-flex align-items-center gap-3 {{ request()->routeIs('stock-warehouse*') ? 'active' : '' }}">
-                    <i class="bi bi-building"></i>
-                    <span>Stok Warehouse</span>
-                </a>
-
-                <a href="{{ route('movement-items') }}"
-                    class="nav-link d-flex align-items-center gap-3 {{ request()->routeIs('movement-items*') ? 'active' : '' }}">
-                    <i class="bi bi-arrow-left-right"></i>
-                    <span>Pergerakan Barang</span>
-                </a>
-
-                <a href="{{ route('backup-data') }}"
-                    class="nav-link d-flex align-items-center gap-3 {{ request()->routeIs('backup-data*') ? 'active' : '' }}">
-                    <i class="bi bi-cloud-download"></i>
-                    <span>Backup Data</span>
-                </a>
-
-                <a href="{{ route('backup-logs') }}"
-                    class="nav-link d-flex align-items-center gap-3 {{ request()->routeIs('backup-logs*') ? 'active' : '' }}">
-                    <i class="bi bi-file-earmark-text"></i>
-                    <span>Log Backup</span>
-                </a>
-
-                <hr class="my-3 border-secondary">
-
-                <a href="#" class="nav-link d-flex align-items-center gap-3">
-                    <i class="bi bi-gear"></i>
-                    <span>Pengaturan</span>
-                </a>
-            </div>
-
-            <!-- User Section -->
-            <div class="px-3 py-3 border-top border-secondary">
-                <small class="text-muted d-block mb-2">Logged in as</small>
-                <div class="text-white fw-semibold small mb-3">
-                    {{ auth()->user()->username ?? (auth()->user()->email ?? (auth()->user()->name ?? 'User')) }}
-                </div>
-                <form method="POST" action="{{ route('logout') }}" class="mb-0">
-                    @csrf
-                    <button type="submit" class="btn btn-sm btn-outline-danger w-100">
-                        <i class="bi bi-box-arrow-right"></i> Logout
-                    </button>
-                </form>
-            </div>
+            <!-- Right navbar links -->
+            <ul class="navbar-nav ml-auto">
+                <!-- User Account Menu -->
+                <li class="nav-item dropdown">
+                    <a class="nav-link" data-toggle="dropdown" href="#">
+                        <i class="far fa-user"></i>
+                    </a>
+                    <div class="dropdown-menu dropdown-menu-right">
+                        <span class="dropdown-header">{{ auth()->user()->name ?? 'User' }}</span>
+                        <a href="#" class="dropdown-item">
+                            <i class="fas fa-user mr-2"></i> Profile
+                        </a>
+                        <div class="dropdown-divider"></div>
+                        <form action="{{ route('logout') }}" method="POST" class="d-inline">
+                            @csrf
+                            <button type="submit" class="dropdown-item">
+                                <i class="fas fa-sign-out-alt mr-2"></i> Logout
+                            </button>
+                        </form>
+                    </div>
+                </li>
+            </ul>
         </nav>
 
-        <!-- Main Content Area -->
-        <div class="flex-grow-1 d-flex flex-column" style="margin-left: 260px;">
-            <!-- Top Navigation Bar -->
-            <header class="navbar navbar-expand-lg navbar-light bg-white border-bottom py-3 px-4">
+        <!-- Left side column. contains the sidebar -->
+        <aside class="main-sidebar sidebar-dark-primary elevation-4">
+            <a href="{{ route('dashboard') }}" class="brand-link" style="background-color: #667eea;">
+                <img src="{{ asset('asset/AdminLTE-3.2.0/dist/img/AdminLTELogo.png') }}" alt="AdminLTE Logo"
+                    class="brand-image img-circle elevation-3" style="opacity: .8">
+                <span class="brand-text font-weight-light">Inventory Sync</span>
+            </a>
+
+            <div class="sidebar">
+                <!-- Sidebar Menu -->
+                <nav class="mt-2">
+                    <ul class="nav nav-pills nav-sidebar flex-column" data-widget="treeview" role="menu"
+                        data-accordion="false">
+                        <li class="nav-item">
+                            <a href="{{ route('dashboard') }}"
+                                class="nav-link {{ request()->routeIs('dashboard') ? 'active' : '' }}">
+                                <i class="nav-icon fas fa-tachometer-alt"></i>
+                                <p>Dashboard</p>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="{{ route('products') }}"
+                                class="nav-link {{ request()->routeIs('products*') ? 'active' : '' }}">
+                                <i class="nav-icon fas fa-boxes"></i>
+                                <p>Produk</p>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="{{ route('stock-warehouse') }}"
+                                class="nav-link {{ request()->routeIs('stock*') ? 'active' : '' }}">
+                                <i class="nav-icon fas fa-cubes"></i>
+                                <p>Stok Warehouse</p>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="{{ route('movement-items') }}"
+                                class="nav-link {{ request()->routeIs('movement*') ? 'active' : '' }}">
+                                <i class="nav-icon fas fa-exchange-alt"></i>
+                                <p>Pergerakan Barang</p>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="{{ route('backup-data') }}"
+                                class="nav-link {{ request()->routeIs('backup-data*') ? 'active' : '' }}">
+                                <i class="nav-icon fas fa-save"></i>
+                                <p>Backup Data</p>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="{{ route('backup-logs') }}"
+                                class="nav-link {{ request()->routeIs('backup-logs*') ? 'active' : '' }}">
+                                <i class="nav-icon fas fa-file-alt"></i>
+                                <p>Log Backup</p>
+                            </a>
+                        </li>
+                    </ul>
+                </nav>
+            </div>
+        </aside>
+
+        <!-- Content Wrapper -->
+        <div class="content-wrapper">
+            <!-- Content Header -->
+            <div class="content-header">
                 <div class="container-fluid">
-                    <h2 class="h4 mb-0">@yield('page-title')</h2>
-
-                    <div class="ms-auto d-flex align-items-center gap-3">
-                        @yield('breadcrumb')
-
-                        <!-- User Dropdown -->
-                        <div class="dropdown ms-3">
-                            <button class="btn btn-link p-0 text-dark" type="button" data-bs-toggle="dropdown">
-                                <div class="d-flex align-items-center gap-2">
-                                    <div class="bg-primary rounded-circle d-flex align-items-center justify-content-center"
-                                        style="width: 36px; height: 36px;">
-                                        <span class="text-white fw-bold">
-                                            {{ substr(auth()->user()->name ?? 'U', 0, 1) }}
-                                        </span>
-                                    </div>
-                                </div>
-                            </button>
-                            <ul class="dropdown-menu dropdown-menu-end">
-                                <li>
-                                    <h6 class="dropdown-header">{{ auth()->user()->name ?? auth()->user()->email }}
-                                    </h6>
-                                </li>
-                                <li>
-                                    <hr class="dropdown-divider">
-                                </li>
-                                <li>
-                                    <form method="POST" action="{{ route('logout') }}" class="mb-0">
-                                        @csrf
-                                        <button type="submit" class="dropdown-item text-danger">
-                                            <i class="bi bi-box-arrow-right"></i> Logout
-                                        </button>
-                                    </form>
-                                </li>
-                            </ul>
+                    <div class="row mb-2">
+                        <div class="col-sm-6">
+                            <h1 class="m-0">@yield('page_title', 'Dashboard')</h1>
                         </div>
                     </div>
                 </div>
-            </header>
+            </div>
 
-            <!-- Page Content -->
-            <main class="flex-grow-1 overflow-auto p-4" style="background-color: #f8f9fa;">
+            <!-- Main content -->
+            <section class="content">
                 <div class="container-fluid">
                     @if ($errors->any())
-                        <div class="alert alert-danger alert-dismissible fade show" role="alert">
-                            <strong><i class="bi bi-exclamation-circle"></i> Error!</strong>
-                            <ul class="mb-0 ms-3">
-                                @foreach ($errors->all() as $error)
-                                    <li>{{ $error }}</li>
-                                @endforeach
-                            </ul>
-                            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                        <div class="alert alert-danger alert-dismissible fade show">
+                            <button type="button" class="close" data-dismiss="alert">&times;</button>
+                            <h4>Error!</h4>
+                            @foreach ($errors->all() as $error)
+                                <div>{{ $error }}</div>
+                            @endforeach
                         </div>
                     @endif
 
                     @if (session('success'))
-                        <div class="alert alert-success alert-dismissible fade show" role="alert">
-                            <i class="bi bi-check-circle"></i> {{ session('success') }}
-                            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-                        </div>
-                    @endif
-
-                    @if (session('error'))
-                        <div class="alert alert-danger alert-dismissible fade show" role="alert">
-                            <i class="bi bi-x-circle"></i> {{ session('error') }}
-                            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                        <div class="alert alert-success alert-dismissible fade show">
+                            <button type="button" class="close" data-dismiss="alert">&times;</button>
+                            {{ session('success') }}
                         </div>
                     @endif
 
                     @yield('content')
                 </div>
-            </main>
+            </section>
         </div>
+
+        <!-- Footer -->
+        <footer class="main-footer">
+            <strong>Copyright &copy; 2024 <a href="#">Inventory Sync System</a>.</strong>
+            All rights reserved.
+            <div class="float-right d-none d-sm-inline-block">
+                <b>Version</b> 1.0.0
+            </div>
+        </footer>
     </div>
 
-    <!-- Bootstrap JS Bundle -->
+    <!-- Scripts -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="{{ asset('asset/AdminLTE-3.2.0/dist/js/adminlte.min.js') }}"></script>
 
-    @stack('js')
+    @yield('extra_js')
 </body>
 
 </html>
