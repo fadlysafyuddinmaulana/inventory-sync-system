@@ -69,45 +69,72 @@ class ProductController extends Controller
     public function getImage($template_id, $size = 128)
     {
         try {
-            // ✅ FIX Bug 1: gunakan res_field bukan name
             $attachment = DB::connection('pgsql_odoo')->selectOne("
-                SELECT id, res_field
-                FROM ir_attachment
-                WHERE res_model = 'product.template'
-                AND res_id      = ?
-                AND res_field   = ?
+                SELECT
+                    pt.id AS product_template_id,
+                    pt.name,
+                    ia.id AS attachment_id,
+                    ia.res_field,
+                    ia.name AS attachment_name,
+                    ia.store_fname,
+                    ia.mimetype,
+                    ia.file_size
+                FROM product_template pt
+                JOIN product_product pp ON pp.product_tmpl_id = pt.id
+                JOIN stock_move sm ON sm.product_id = pp.id
+                LEFT JOIN ir_attachment ia
+                    ON ia.res_model = 'product.template'
+                   AND ia.res_id = pt.id
+                   AND ia.res_field IN ('image_128', 'image_1920', 'image_512', 'image_256')
+                WHERE pt.id = ?
+                  AND sm.state = 'done'
+                  AND ia.res_field = ?
+                ORDER BY sm.create_date DESC, pt.id, ia.res_field
                 LIMIT 1
             ", [$template_id, "image_{$size}"]);
 
-            // ✅ FIX Bug 2: fallback ke placeholder jika tidak ada gambar
+            // Fallback: kalau size spesifik tidak ada, ambil field image lain yang tersedia
             if (!$attachment) {
-                // Coba fallback ke image_1920 kalau size tidak ditemukan
                 $attachment = DB::connection('pgsql_odoo')->selectOne("
-                    SELECT id, res_field
-                    FROM ir_attachment
-                    WHERE res_model = 'product.template'
-                    AND res_id      = ?
-                    AND res_field   LIKE 'image_%'
-                    ORDER BY id DESC
+                    SELECT
+                        pt.id AS product_template_id,
+                        pt.name,
+                        ia.id AS attachment_id,
+                        ia.res_field,
+                        ia.name AS attachment_name,
+                        ia.store_fname,
+                        ia.mimetype,
+                        ia.file_size
+                    FROM product_template pt
+                    JOIN product_product pp ON pp.product_tmpl_id = pt.id
+                    JOIN stock_move sm ON sm.product_id = pp.id
+                    LEFT JOIN ir_attachment ia
+                        ON ia.res_model = 'product.template'
+                       AND ia.res_id = pt.id
+                       AND ia.res_field IN ('image_128', 'image_1920', 'image_512', 'image_256')
+                    WHERE pt.id = ?
+                      AND sm.state = 'done'
+                      AND ia.res_field IS NOT NULL
+                    ORDER BY sm.create_date DESC, pt.id, ia.res_field
                     LIMIT 1
                 ", [$template_id]);
             }
 
+            // Tidak ada attachment sama sekali → tampilkan placeholder SVG
             if (!$attachment) {
-                // Return placeholder image dari public folder
-                $placeholder = public_path('images/no-image.png');
+                $placeholder = public_path('images/no-image.svg');
                 if (file_exists($placeholder)) {
                     return response()->file($placeholder, [
-                        'Content-Type'  => 'image/png',
+                        'Content-Type'  => 'image/svg+xml',
                         'Cache-Control' => 'max-age=3600',
                     ]);
                 }
                 return response()->noContent();
             }
 
-            // ✅ FIX Bug 3: gunakan env() dengan fallback yang benar
+            // Fetch gambar dari Odoo
             $odooUrl = env('ODOO_URL', 'http://localhost:8069');
-            $url     = "{$odooUrl}/web/image/ir.attachment/{$attachment->id}";
+            $url     = "{$odooUrl}/web/image/ir.attachment/{$attachment->attachment_id}";
             $url    .= "?max_width={$size}&max_height={$size}";
 
             $response = Http::timeout(30)->get($url);
@@ -119,10 +146,13 @@ class ProductController extends Controller
                     ->header('Cache-Control', 'max-age=86400');
             }
 
-            // Kalau Odoo return error, tampilkan placeholder
-            $placeholder = public_path('images/no-image.png');
+            // Odoo return error → fallback ke placeholder SVG
+            $placeholder = public_path('images/no-image.svg');
             if (file_exists($placeholder)) {
-                return response()->file($placeholder, ['Content-Type' => 'image/png']);
+                return response()->file($placeholder, [
+                    'Content-Type'  => 'image/svg+xml',
+                    'Cache-Control' => 'max-age=3600',
+                ]);
             }
 
             return response()->noContent();
@@ -130,9 +160,13 @@ class ProductController extends Controller
         } catch (\Exception $e) {
             Log::error("Error fetching product image: " . $e->getMessage());
 
-            $placeholder = public_path('images/no-image.png');
+            // Exception → fallback ke placeholder SVG
+            $placeholder = public_path('images/no-image.svg');
             if (file_exists($placeholder)) {
-                return response()->file($placeholder, ['Content-Type' => 'image/png']);
+                return response()->file($placeholder, [
+                    'Content-Type'  => 'image/svg+xml',
+                    'Cache-Control' => 'max-age=3600',
+                ]);
             }
 
             return response()->noContent();
