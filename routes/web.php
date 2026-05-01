@@ -19,6 +19,9 @@ Route::get('/', function () {
     return auth()->check() ? redirect()->route('dashboard') : redirect()->route('login');
 })->name('home');
 
+// Public Routes for Images (accessible without authentication)
+Route::get('/products/{template_id}/image/{size}', [ProductController::class, 'getImage'])->name('products.image');
+
 // Protected Routes
 Route::middleware(['auth'])->group(function () {
     // Dashboard
@@ -52,4 +55,33 @@ Route::middleware(['auth'])->group(function () {
 Route::post('/backup', [BackupController::class, 'backup']);
 Route::get('/test-sql-server', function () {
     return 'SQL Server connection test';
+});
+
+// Test Odoo API
+Route::get('/test-odoo-api', function () {
+    try {
+        // Test HTTP call to Odoo API
+        $odooUrl = env('ODOO_URL', 'http://localhost:8069');
+        $attachmentId = 534; // image_128 for product 1
+        
+        $url = "{$odooUrl}/web/image/ir.attachment/{$attachmentId}";
+        
+        $response = \Illuminate\Support\Facades\Http::timeout(30)->get($url);
+        
+        return response()->json([
+            'status' => $response->successful() ? 'success' : 'failed',
+            'http_status' => $response->status(),
+            'url' => $url,
+            'body_length' => strlen($response->body()),
+            'headers' => $response->headers(),
+            'test_service' => (new \App\Services\OdooImageService())->getThumbnail(1) ? 'working' : 'null'
+        ]);
+    } catch (\Exception $e) {
+        return response()->json([
+            'status' => 'error',
+            'message' => $e->getMessage(),
+            'file' => $e->getFile(),
+            'line' => $e->getLine()
+        ], 500);
+    }
 });

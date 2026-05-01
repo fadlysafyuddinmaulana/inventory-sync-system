@@ -26,7 +26,7 @@ class StockController extends Controller
             $query = "
                 SELECT 
                     sq.id,
-                    pt.name as product_name,
+                    pt.name ->>'en_US' as product_name,
                     pp.default_code,
                     sl.name as location_name,
                     sw.name as warehouse_name,

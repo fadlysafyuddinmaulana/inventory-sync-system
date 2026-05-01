@@ -29,6 +29,7 @@
                                         <th>SKU</th>
                                         <th>Price</th>
                                         <th>Quantity On Hand</th>
+                                        <th>Image</th>
                                         <th>Action</th>
                                     </tr>
                                 </thead>
@@ -42,6 +43,12 @@
                                             <td>
                                                 <span
                                                     class="badge badge-info">{{ number_format($product->qty_on_hand, 0) }}</span>
+                                            </td>
+                                            <td>
+                                                <img src="{{ route('products.image', [$product->template_id, 128]) }}"
+                                                    alt="{{ $product->name }}"
+                                                    onerror="this.src='{{ asset('images/no-image.png') }}';"
+                                                    style="width: 50px; height: 50px; object-fit: cover; border-radius: 4px;">
                                             </td>
                                             <td>
                                                 <a href="{{ route('products.show', $product->id) }}"

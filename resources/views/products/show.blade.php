@@ -10,6 +10,14 @@
                     <h3 class="card-title">Product Information</h3>
                 </div>
                 <div class="card-body">
+                    <div class="product-image-container mb-4">
+                        <img src="{{ route('products.image', [$product->template_id, 1920]) }}" alt="{{ $product->name }}"
+                            class="img-fluid"
+                            style="max-width: 100%; height: auto; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+                    </div>
+
+                    <hr>
+
                     <dl class="row">
                         <dt class="col-sm-3">Product ID:</dt>
                         <dd class="col-sm-9">{{ $product->id }}</dd>
