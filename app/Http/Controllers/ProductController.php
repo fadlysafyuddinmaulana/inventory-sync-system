@@ -93,7 +93,6 @@ class ProductController extends Controller
                 LIMIT 1
             ", [$template_id, "image_{$size}"]);
 
-            // Fallback: kalau size spesifik tidak ada, ambil field image lain yang tersedia
             if (!$attachment) {
                 $attachment = DB::connection('pgsql_odoo')->selectOne("
                     SELECT
@@ -120,56 +119,60 @@ class ProductController extends Controller
                 ", [$template_id]);
             }
 
-            // Tidak ada attachment sama sekali → tampilkan placeholder SVG
-            if (!$attachment) {
-                $placeholder = public_path('images/no-image.svg');
-                if (file_exists($placeholder)) {
-                    return response()->file($placeholder, [
-                        'Content-Type'  => 'image/svg+xml',
-                        'Cache-Control' => 'max-age=3600',
-                    ]);
-                }
-                return response()->noContent();
+            // Tidak ada attachment → placeholder
+            if (!$attachment || !$attachment->attachment_id) {
+                return $this->placeholderResponse();
             }
 
-            // Fetch gambar dari Odoo
+            // 1) Coba baca langsung dari filesystem Odoo jika path memang tersedia di host ini
+            $filestorePath = env('ODOO_FILESTORE_PATH', '/var/lib/odoo/filestore');
+            $database      = env('ODOO_DATABASE', 'odoo_inventory_db');
+            $fullPath      = "{$filestorePath}/{$database}/{$attachment->store_fname}";
+
+            if ($attachment->store_fname && file_exists($fullPath)) {
+                return response()->file($fullPath, [
+                    'Content-Type'  => $attachment->mimetype ?? 'image/webp',
+                    'Cache-Control' => 'max-age=86400',
+                ]);
+            }
+
+            // 2) Fallback ke Odoo API jika filestore lokal tidak ada / tidak bisa diakses
             $odooUrl = env('ODOO_URL', 'http://localhost:8069');
-            $url     = "{$odooUrl}/web/image/ir.attachment/{$attachment->attachment_id}";
-            $url    .= "?max_width={$size}&max_height={$size}";
+            $url = "{$odooUrl}/web/image/ir.attachment/{$attachment->attachment_id}";
+            $url .= "?max_width={$size}&max_height={$size}";
 
             $response = Http::timeout(30)->get($url);
 
             if ($response->successful()) {
-                $contentType = $response->header('Content-Type') ?? 'image/png';
                 return response($response->body(), 200)
-                    ->header('Content-Type', $contentType)
+                    ->header('Content-Type', $response->header('Content-Type') ?? ($attachment->mimetype ?? 'image/png'))
                     ->header('Cache-Control', 'max-age=86400');
             }
 
-            // Odoo return error → fallback ke placeholder SVG
-            $placeholder = public_path('images/no-image.svg');
-            if (file_exists($placeholder)) {
-                return response()->file($placeholder, [
-                    'Content-Type'  => 'image/svg+xml',
-                    'Cache-Control' => 'max-age=3600',
-                ]);
-            }
+            Log::warning('Odoo API image fetch failed', [
+                'template_id' => $template_id,
+                'attachment_id' => $attachment->attachment_id,
+                'status' => $response->status(),
+                'url' => $url,
+            ]);
 
-            return response()->noContent();
+            return $this->placeholderResponse();
 
         } catch (\Exception $e) {
-            Log::error("Error fetching product image: " . $e->getMessage());
-
-            // Exception → fallback ke placeholder SVG
-            $placeholder = public_path('images/no-image.svg');
-            if (file_exists($placeholder)) {
-                return response()->file($placeholder, [
-                    'Content-Type'  => 'image/svg+xml',
-                    'Cache-Control' => 'max-age=3600',
-                ]);
-            }
-
-            return response()->noContent();
+            \Log::error("Error fetching product image: " . $e->getMessage());
+            return $this->placeholderResponse();
         }
+    }
+
+    private function placeholderResponse()
+    {
+        $placeholder = public_path('images/no-image.svg');
+        if (file_exists($placeholder)) {
+            return response()->file($placeholder, [
+                'Content-Type'  => 'image/svg+xml',
+                'Cache-Control' => 'max-age=3600',
+            ]);
+        }
+        return response()->noContent();
     }
 }
