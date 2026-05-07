@@ -5,6 +5,10 @@ namespace App\Models\Odoo;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
 
+/**
+ * @deprecated Use OdooService::execute() instead of this Eloquent model.
+ * This model connects to pgsql_odoo (Odoo PostgreSQL), but new code should use OdooService for JSON-RPC API calls.
+ */
 class ProductTemplate extends Model
 {
     protected $connection = 'pgsql_odoo';
@@ -29,20 +33,8 @@ class ProductTemplate extends Model
      */
     public function getImageDataUri($size = '1920')
     {
-        $image = DB::connection('pgsql_odoo')->selectOne("
-            SELECT encode(db_datas, 'base64') as data
-            FROM ir_attachment
-            WHERE res_model = 'product.template'
-            AND res_id = ?
-            AND name = ?
-            LIMIT 1
-        ", [$this->id, 'image_' . $size]);
-
-        if (!$image || !$image->data) {
-            return null;
-        }
-
-        return 'data:image/png;base64,' . $image->data;
+        $service = resolve(\App\Services\OdooImageService::class);
+        return $service->getImageDataUri($this->id, 'image_' . $size);
     }
 
     /**
@@ -50,14 +42,44 @@ class ProductTemplate extends Model
      */
     public function hasImage()
     {
-        $result = DB::connection('pgsql_odoo')->selectOne("
-            SELECT COUNT(*) as count
-            FROM ir_attachment
-            WHERE res_model = 'product.template'
-            AND res_id = ?
-            AND name IN ('image_128', 'image_256', 'image_1920')
-        ", [$this->id]);
+        $service = resolve(\App\Services\OdooImageService::class);
+        $img = $service->getProductImage($this->id, 'image_128');
+        return !empty($img);
+    }
 
-        return $result && $result->count > 0;
+    /**
+     * Get product image URL via Odoo web/image endpoint
+     * 
+     * @param int $size Image size (128, 256, 512, 1920)
+     * @return string Image URL
+     */
+    public function getImageUrl($size = 256)
+    {
+        $service = resolve(\App\Services\OdooService::class);
+        return $service->getImageUrl($this->id, $size);
+    }
+
+    /**
+     * Get thumbnail image URL
+     */
+    public function getThumbnailUrl()
+    {
+        return $this->getImageUrl(128);
+    }
+
+    /**
+     * Get medium image URL
+     */
+    public function getMediumUrl()
+    {
+        return $this->getImageUrl(256);
+    }
+
+    /**
+     * Get large image URL
+     */
+    public function getLargeUrl()
+    {
+        return $this->getImageUrl(1920);
     }
 }

@@ -2,70 +2,74 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Odoo\ProductTemplate;
-use App\Models\Odoo\StockQuant;
-use App\Models\Odoo\StockWarehouse;
-use App\Models\Odoo\StockMove;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Http\Request;
+use App\Services\OdooService;
 
 class DashboardController extends Controller
 {
+    private OdooService $odooService;
+
+    public function __construct(OdooService $odooService)
+    {
+        $this->odooService = $odooService;
+    }
     public function index()
     {
         try {
-            // Get dashboard statistics from Odoo
-            $totalProducts = DB::connection('pgsql_odoo')
-                ->table('product_template')
-                ->count();
+            // Get dashboard statistics from Odoo via API
+            $totalProducts = $this->odooService->execute('product.template', 'search_count', [[]]);
 
-            $totalStocks = DB::connection('pgsql_odoo')
-                ->table('stock_quant')
-                ->sum('quantity');
+            $quantRows = $this->odooService->execute('stock.quant', 'search_read', [[], ['quantity'], 0, 0]);
+            $totalStocks = 0;
+            foreach (is_array($quantRows) ? $quantRows : [] as $q) {
+                $totalStocks += isset($q['quantity']) ? (float)$q['quantity'] : 0;
+            }
 
-            $totalWarehouses = DB::connection('pgsql_odoo')
-                ->table('stock_warehouse')
-                ->count();
+            $totalWarehouses = $this->odooService->execute('stock.warehouse', 'search_count', [[]]);
 
-            $totalMovements = DB::connection('pgsql_odoo')
-                ->table('stock_move')
-                ->where('state', 'done')
-                ->count();
+            $totalMovements = $this->odooService->execute('stock.move', 'search_count', [[['state', '=', 'done']]]);
 
-            // Get recent movements
-            $recentMovements = DB::connection('pgsql_odoo')->select(<<<'SQL'
-                SELECT 
-                    sm.id,
-                    pt.name ->> 'en_US' AS product_name,
-                    sm.product_uom_qty AS quantity_done,
-                    sl1.name as source_location,
-                    sl2.name as destination_location,
-                    sm.state,
-                    sm.create_date
-                FROM stock_move sm
-                LEFT JOIN product_product pp ON sm.product_id = pp.id
-                LEFT JOIN product_template pt ON pp.product_tmpl_id = pt.id
-                LEFT JOIN stock_location sl1 ON sm.location_id = sl1.id
-                LEFT JOIN stock_location sl2 ON sm.location_dest_id = sl2.id
-                WHERE sm.state = 'done'
-                ORDER BY sm.create_date DESC
-                LIMIT 10
-            SQL
-            );
+            // Recent movements
+            $recentRaw = $this->odooService->execute('stock.move', 'search_read', [[['state', '=', 'done']], ['id', 'product_id', 'product_uom_qty', 'location_id', 'location_dest_id', 'state', 'create_date'], 0, 10]);
+            $recentMovements = [];
+            foreach (is_array($recentRaw) ? $recentRaw : [] as $m) {
+                $prod = $m['product_id'] ?? null;
+                $prodName = is_array($prod) ? ($prod[1] ?? null) : null;
+                $src = is_array($m['location_id'] ?? null) ? ($m['location_id'][1] ?? null) : null;
+                $dst = is_array($m['location_dest_id'] ?? null) ? ($m['location_dest_id'][1] ?? null) : null;
 
-            // Get warehouse summary with stock
-            $warehouseSummary = DB::connection('pgsql_odoo')->select("
-                SELECT 
-                    sw.id,
-                    sw.name as warehouse_name,
-                    COUNT(DISTINCT sq.id) as total_lines,
-                    COALESCE(SUM(sq.quantity), 0) as total_quantity
-                FROM stock_warehouse sw
-                LEFT JOIN stock_location sl ON sw.id = sl.warehouse_id
-                LEFT JOIN stock_quant sq ON sl.id = sq.location_id
-                GROUP BY sw.id, sw.name
-                ORDER BY sw.name
-            ");
+                $recentMovements[] = (object)[
+                    'id' => $m['id'] ?? null,
+                    'product_name' => $prodName,
+                    'quantity_done' => $m['product_uom_qty'] ?? null,
+                    'source_location' => $src,
+                    'destination_location' => $dst,
+                    'state' => $m['state'] ?? null,
+                    'create_date' => $m['create_date'] ?? null,
+                ];
+            }
+
+            // Warehouse summary: fetch warehouses and aggregate stock via locations
+            $warehouses = $this->odooService->execute('stock.warehouse', 'search_read', [[], ['id', 'name'], 0, 0]);
+            $warehouseSummary = [];
+            foreach (is_array($warehouses) ? $warehouses : [] as $w) {
+                $wid = $w['id'];
+                $locIds = $this->odooService->execute('stock.location', 'search', [[['warehouse_id', '=', $wid]]]);
+                $totalQty = 0;
+                if (!empty($locIds)) {
+                    $quants = $this->odooService->execute('stock.quant', 'search_read', [[['location_id', 'in', $locIds]], ['quantity'], 0, 0]);
+                    foreach (is_array($quants) ? $quants : [] as $q) {
+                        $totalQty += isset($q['quantity']) ? (float)$q['quantity'] : 0;
+                    }
+                }
+                $warehouseSummary[] = (object)[
+                    'id' => $wid,
+                    'warehouse_name' => $w['name'] ?? null,
+                    'total_lines' => 0,
+                    'total_quantity' => $totalQty,
+                ];
+            }
 
             return view('dashboard.index', [
                 'totalProducts' => $totalProducts,

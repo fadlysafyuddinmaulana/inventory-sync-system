@@ -78,27 +78,26 @@ class OdooImageService
     public function getProductImage($templateId, $imageSize = 'image_256')
     {
         try {
-            // Query database untuk find attachment ID
-            $attachment = \DB::connection('pgsql_odoo')->selectOne("
-                SELECT id, name, store_fname
-                FROM ir_attachment
-                WHERE res_model = 'product.template'
-                AND res_id = ?
-                AND name = ?
-                LIMIT 1
-            ", [$templateId, $imageSize]);
+            // Use Odoo web image endpoint for product.template fields
+            // Example: /web/image/product.template/{id}/image_256
+            $cacheKey = "odoo_product_image_{$templateId}_{$imageSize}";
 
-            if (!$attachment) {
-                return null;
+            $cached = Cache::get($cacheKey);
+            if ($cached) {
+                return $cached;
             }
 
-            // Extract size from image size name (e.g., image_256 -> 256)
-            $sizeMatch = preg_match('/image_(\d+)/', $imageSize, $matches);
-            $pixelSize = $sizeMatch ? $matches[1] : null;
+            $url = rtrim($this->odooUrl, '/') . "/web/image/product.template/{$templateId}/{$imageSize}";
 
-            // Fetch from Odoo API
-            return $this->getImageFromOdoo($attachment->id, $pixelSize);
+            $response = Http::timeout(30)->get($url);
 
+            if ($response->successful()) {
+                $base64Image = base64_encode($response->body());
+                Cache::put($cacheKey, $base64Image, 3600);
+                return $base64Image;
+            }
+
+            return null;
         } catch (\Exception $e) {
             \Log::error("Error getting product image: " . $e->getMessage());
             return null;

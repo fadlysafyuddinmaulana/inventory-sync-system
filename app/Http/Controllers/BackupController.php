@@ -3,15 +3,20 @@
 namespace App\Http\Controllers;
 
 use App\Models\BackupLog;
-use App\Models\Odoo\ProductTemplate;
-use App\Models\Odoo\StockQuant;
-use App\Models\Odoo\StockWarehouse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
+use App\Services\OdooService;
 
 class BackupController extends Controller
 {
+    private OdooService $odooService;
+
+    public function __construct(OdooService $odooService)
+    {
+        $this->odooService = $odooService;
+    }
+
     /**
      * Show backup page
      */
@@ -37,46 +42,24 @@ class BackupController extends Controller
         $backupLog->save();
 
         try {
-            // Backup products from Odoo to SQL Server
-            $products = DB::connection('pgsql_odoo')->select("
-                SELECT 
-                    pp.id,
-                    pt.name,
-                    pp.default_code,
-                    pt.list_price
-                FROM product_product pp
-                JOIN product_template pt ON pp.product_tmpl_id = pt.id
-                ORDER BY pt.name
-            ");
+            // Backup products from Odoo via API to SQL Server
+            $productIds = $this->odooService->execute('product.template', 'search', [[]]);
+
+            $products = [];
+            if (!empty($productIds) && is_array($productIds)) {
+                $products = $this->odooService->execute('product.template', 'read', [$productIds, ['id', 'name', 'default_code', 'list_price']]);
+            }
 
             $productCount = $this->backupProducts($products);
 
-            // Backup stocks from Odoo to SQL Server
-            $stocks = DB::connection('pgsql_odoo')->select("
-                SELECT 
-                    sq.id,
-                    pp.id as product_id,
-                    pt.name as product_name,
-                    sl.id as location_id,
-                    sl.name as location_name,
-                    sw.id as warehouse_id,
-                    sw.name as warehouse_name,
-                    sq.quantity,
-                    sq.reserved_quantity
-                FROM stock_quant sq
-                LEFT JOIN product_product pp ON sq.product_id = pp.id
-                LEFT JOIN product_template pt ON pp.product_tmpl_id = pt.id
-                LEFT JOIN stock_location sl ON sq.location_id = sl.id
-                LEFT JOIN stock_warehouse sw ON sl.warehouse_id = sw.id
-                ORDER BY sw.name, sl.name
-            ");
+            // Backup stocks from Odoo via API to SQL Server
+            $stocks = $this->odooService->execute('stock.quant', 'search_read', [[], ['id', 'product_id', 'quantity', 'reserved_quantity', 'location_id'], 0, 0]);
 
             $stockCount = $this->backupStocks($stocks);
 
-            // Count warehouses
-            $warehouseCount = DB::connection('pgsql_odoo')
-                ->table('stock_warehouse')
-                ->count();
+            // Get warehouse count via Odoo API
+            $warehouseIds = $this->odooService->execute('stock.warehouse', 'search', [[]]);
+            $warehouseCount = is_array($warehouseIds) ? count($warehouseIds) : 0;
 
             // Update backup log
             $backupLog->update([
@@ -118,10 +101,10 @@ class BackupController extends Controller
 
         foreach ($products as $product) {
             $backupData[] = [
-                'product_id' => $product->id,
-                'name' => $product->name,
-                'code' => $product->default_code,
-                'price' => $product->list_price,
+                'product_id' => data_get($product, 'id'),
+                'name' => data_get($product, 'name'),
+                'code' => (string) data_get($product, 'default_code', ''),
+                'price' => data_get($product, 'list_price'),
                 'created_at' => Carbon::now(),
             ];
         }
@@ -147,15 +130,25 @@ class BackupController extends Controller
         $backupData = [];
 
         foreach ($stocks as $stock) {
+            // product_id and location_id from Odoo API often come as [id, display_name]
+            $productField = data_get($stock, 'product_id');
+            $locationField = data_get($stock, 'location_id');
+
+            $productId = is_array($productField) ? ($productField[0] ?? null) : data_get($stock, 'product_id');
+            $productName = is_array($productField) ? ($productField[1] ?? null) : data_get($stock, 'product_name');
+
+            $locationId = is_array($locationField) ? ($locationField[0] ?? null) : data_get($stock, 'location_id');
+            $locationName = is_array($locationField) ? ($locationField[1] ?? null) : data_get($stock, 'location_name');
+
             $backupData[] = [
-                'product_id' => $stock->product_id,
-                'product_name' => $stock->product_name,
-                'location_id' => $stock->location_id,
-                'location_name' => $stock->location_name,
-                'warehouse_id' => $stock->warehouse_id,
-                'warehouse_name' => $stock->warehouse_name,
-                'quantity' => $stock->quantity,
-                'reserved_quantity' => $stock->reserved_quantity ?? 0,
+                'product_id' => $productId,
+                'product_name' => $productName,
+                'location_id' => $locationId,
+                'location_name' => $locationName,
+                'warehouse_id' => null,
+                'warehouse_name' => null,
+                'quantity' => data_get($stock, 'quantity', 0),
+                'reserved_quantity' => data_get($stock, 'reserved_quantity', 0),
                 'created_at' => Carbon::now(),
             ];
         }

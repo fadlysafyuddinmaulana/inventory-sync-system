@@ -8,64 +8,84 @@
             <div class="card">
                 <div class="card-header">
                     <div class="d-flex justify-content-between align-items-center">
-                        <h3 class="card-title">Product List</h3>
+                        <h3 class="card-title">
+                            <i class="fas fa-box"></i> Product List
+                            @if ($total > 0)
+                                <small class="text-muted">({{ $total }} products)</small>
+                            @endif
+                        </h3>
                         <a href="{{ route('backup-data') }}" class="btn btn-sm btn-warning">
                             <i class="fas fa-save"></i> Backup
                         </a>
                     </div>
                 </div>
-                <div class="card-body">
-                    @if (isset($error))
-                        <div class="alert alert-danger">{{ $error }}</div>
-                    @endif
 
-                    @if (count($products) > 0)
-                        <div class="table-responsive">
-                            <table id="productsTable" class="table table-striped table-hover">
-                                <thead class="table-dark">
-                                    <tr>
-                                        <th>ID</th>
-                                        <th>Product Name</th>
-                                        <th>SKU</th>
-                                        <th>Price</th>
-                                        <th>Quantity On Hand</th>
-                                        <th>Image</th>
-                                        <th>Action</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    @foreach ($products as $product)
-                                        <tr>
-                                            <td>#{{ $product->id }}</td>
-                                            <td><strong>{{ $product->name }}</strong></td>
-                                            <td>{{ $product->default_code ?? 'N/A' }}</td>
-                                            <td>Rp {{ number_format($product->list_price, 0, ',', '.') }}</td>
-                                            <td>
-                                                <span
-                                                    class="badge badge-info">{{ number_format($product->qty_on_hand, 0) }}</span>
-                                            </td>
-                                            <td>
-                                                <img src="{{ route('products.image', [$product->template_id, 128]) }}"
-                                                    alt="{{ $product->name }}"
-                                                    onerror="this.src='{{ asset('images/no-image.png') }}';"
-                                                    style="width: 50px; height: 50px; object-fit: cover; border-radius: 4px;">
-                                            </td>
-                                            <td>
-                                                <a href="{{ route('products.show', $product->id) }}"
-                                                    class="btn btn-sm btn-info">
-                                                    <i class="fas fa-eye"></i>
-                                                </a>
-                                            </td>
-                                        </tr>
-                                    @endforeach
-                                </tbody>
-                            </table>
+                <!-- Search & Filter Section -->
+                {{-- <div class="card-body border-bottom">
+                    <form method="GET" action="{{ route('products') }}" class="form-inline">
+                        <div class="input-group" style="width: 100%;">
+                            <input type="text" name="search" class="form-control"
+                                placeholder="Search by product name or SKU..." value="{{ $search }}"
+                                autocomplete="off">
+                            <div class="input-group-append">
+                                <button class="btn btn-primary" type="submit">
+                                    <i class="fas fa-search"></i> Search
+                                </button>
+                                @if ($search)
+                                    <a href="{{ route('products') }}" class="btn btn-secondary ml-2">
+                                        <i class="fas fa-times"></i> Clear
+                                    </a>
+                                @endif
+                            </div>
                         </div>
-                    @else
-                        <div class="alert alert-info text-center">
-                            <i class="fas fa-info-circle"></i> No products found
-                        </div>
-                    @endif
+                    </form>
+                </div> --}}
+
+                <!-- Products Content -->
+                <div class="card-body">
+                    <table id="productsTable" class="table table-sm table-striped">
+                        <thead>
+                            <tr>
+                                <th>Image</th>
+                                <th>Product Name</th>
+                                <th>SKU</th>
+                                <th>Price</th>
+                                <th>Qty On Hand</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @forelse($products as $product)
+                                <tr>
+                                    <td style="width:120px;">
+                                        @if (!empty($product['image_url']))
+                                            <img src="{{ $product['image_url'] }}"
+                                                alt="{{ data_get($product, 'name', '') }}" class="img-thumbnail"
+                                                style="width:120px;height:120px;object-fit:cover;" />
+                                        @else
+                                            <div class="img-placeholder"
+                                                style="width:120px;height:120px;display:flex;align-items:center;justify-content:center;background:#f0f0f0;border:1px solid #ddd;border-radius:4px;font-size:11px;color:#999;">
+                                                NO IMG</div>
+                                        @endif
+                                    </td>
+                                    <td>{{ data_get($product, 'name', 'N/A') }}</td>
+                                    <td>{{ data_get($product, 'default_code', 'N/A') }}</td>
+                                    <td>{{ data_get($product, 'list_price', 'N/A') }}</td>
+                                    <td>{{ data_get($product, 'qty_on_hand', 'N/A') }}</td>
+                                    <td>
+                                        <a href="{{ route('products.show', data_get($product, 'id')) }}"
+                                            class="btn btn-sm btn-info" title="View Details">
+                                            <i class="fas fa-eye"></i>
+                                        </a>
+                                    </td>
+                                </tr>
+                            @empty
+                                <tr>
+                                    <td colspan="6" class="text-center text-muted">No products found</td>
+                                </tr>
+                            @endforelse
+                        </tbody>
+                    </table>
                 </div>
             </div>
         </div>
@@ -74,20 +94,22 @@
 
 @section('extra_css')
     <link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/jquery.dataTables.min.css">
-    <link rel="stylesheet" href="https://cdn.datatables.net/responsive/2.5.0/css/responsive.dataTables.min.css">
 @endsection
 
 @section('extra_js')
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
     <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
-    <script src="https://cdn.datatables.net/responsive/2.5.0/js/dataTables.responsive.min.js"></script>
+
     <script>
         $(document).ready(function() {
             $('#productsTable').DataTable({
                 responsive: true,
-                pageLength: 25,
+                paging: true,
+                pageLength: 10,
+                ordering: true,
                 columnDefs: [{
                     orderable: false,
-                    targets: -1
+                    targets: []
                 }]
             });
         });

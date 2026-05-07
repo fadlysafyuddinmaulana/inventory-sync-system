@@ -4,9 +4,16 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use App\Services\OdooService;
 
 class StockController extends Controller
 {
+    private OdooService $odooService;
+
+    public function __construct(OdooService $odooService)
+    {
+        $this->odooService = $odooService;
+    }
     /**
      * Display stock warehouse list
      */
@@ -16,45 +23,91 @@ class StockController extends Controller
             $warehouseFilter = $request->input('warehouse');
             $search = $request->input('search');
 
-            // Get all warehouses
-            $warehouses = DB::connection('pgsql_odoo')
-                ->table('stock_warehouse')
-                ->select('id', 'name', 'code')
-                ->get();
+            // Get all warehouses via Odoo API
+            $warehouses = $this->odooService->execute('stock.warehouse', 'search_read', [[], ['id', 'name', 'code'], 0, 0]);
+
+            // Normalize warehouses to objects
+            $warehouses = array_map(function ($w) {
+                return (object)[
+                    'id' => $w['id'] ?? null,
+                    'name' => $w['name'] ?? null,
+                    'code' => $w['code'] ?? null,
+                ];
+            }, is_array($warehouses) ? $warehouses : []);
 
             // Build query for stock
-            $query = "
-                SELECT 
-                    sq.id,
-                    pt.name ->>'en_US' as product_name,
-                    pp.default_code,
-                    sl.name as location_name,
-                    sw.name as warehouse_name,
-                    sq.quantity
-                FROM stock_quant sq
-                LEFT JOIN product_product pp ON sq.product_id = pp.id
-                LEFT JOIN product_template pt ON pp.product_tmpl_id = pt.id
-                LEFT JOIN stock_location sl ON sq.location_id = sl.id
-                LEFT JOIN stock_warehouse sw ON sl.warehouse_id = sw.id
-                WHERE sq.quantity > 0
-            ";
 
-            $params = [];
+            // Build domain for stock.quant
+            $domain = [['quantity', '>', 0]];
 
             if ($warehouseFilter) {
-                $query .= " AND sl.warehouse_id = ?";
-                $params[] = $warehouseFilter;
+                // find locations for this warehouse
+                $locationIds = $this->odooService->execute('stock.location', 'search', [[['warehouse_id', '=', (int)$warehouseFilter]]]);
+                if (!empty($locationIds) && is_array($locationIds)) {
+                    $domain[] = ['location_id', 'in', $locationIds];
+                }
             }
 
             if ($search) {
-                $query .= " AND (pt.name ILIKE ? OR pp.default_code ILIKE ?)";
-                $params[] = "%{$search}%";
-                $params[] = "%{$search}%";
+                // Search for products matching the search term, then get their stock
+                $productDomain = [['|', ['name', 'ilike', $search], ['default_code', 'ilike', $search]]];
+                $matchingProducts = $this->odooService->execute('product.product', 'search', [$productDomain]);
+                if (!empty($matchingProducts) && is_array($matchingProducts)) {
+                    $domain[] = ['product_id', 'in', $matchingProducts];
+                }
             }
 
-            $query .= " ORDER BY sw.name, sl.name, pt.name";
+            $fields = ['id', 'product_id', 'quantity', 'reserved_quantity', 'location_id'];
 
-            $stocks = DB::connection('pgsql_odoo')->select($query, $params);
+            $stocksRaw = $this->odooService->execute('stock.quant', 'search_read', [$domain, $fields, 0, 0]);
+
+            $stocks = [];
+            // collect location ids for mapping
+            $locationIds = [];
+            foreach (is_array($stocksRaw) ? $stocksRaw : [] as $s) {
+                if (isset($s['location_id']) && is_array($s['location_id'])) {
+                    $locationIds[] = $s['location_id'][0];
+                }
+            }
+
+            $locationMap = [];
+            if (!empty($locationIds)) {
+                $locations = $this->odooService->execute('stock.location', 'read', [$locationIds, ['id', 'name', 'warehouse_id']]);
+                foreach (is_array($locations) ? $locations : [] as $loc) {
+                    $locationMap[$loc['id']] = [
+                        'name' => $loc['name'] ?? null,
+                        'warehouse_id' => isset($loc['warehouse_id'][0]) ? $loc['warehouse_id'][0] : null,
+                    ];
+                }
+            }
+
+            // build warehouse map
+            $warehouseMap = [];
+            foreach ($warehouses as $w) {
+                $warehouseMap[$w->id] = $w->name;
+            }
+
+            foreach (is_array($stocksRaw) ? $stocksRaw : [] as $row) {
+                $prod = $row['product_id'] ?? null;
+                $prodName = is_array($prod) ? ($prod[1] ?? null) : null;
+                $prodCode = null; // default_code not always present via product_id tuple
+
+                $locId = is_array($row['location_id'] ?? null) ? ($row['location_id'][0] ?? null) : ($row['location_id'] ?? null);
+                $locName = $locationMap[$locId]['name'] ?? null;
+                $whId = $locationMap[$locId]['warehouse_id'] ?? null;
+                $whName = $warehouseMap[$whId] ?? null;
+
+                $obj = (object)[
+                    'id' => $row['id'] ?? null,
+                    'product_name' => $prodName,
+                    'default_code' => $prodCode,
+                    'location_name' => $locName,
+                    'warehouse_name' => $whName,
+                    'quantity' => $row['quantity'] ?? 0,
+                ];
+
+                $stocks[] = $obj;
+            }
 
             return view('stocks.warehouse', [
                 'stocks' => $stocks,
@@ -79,19 +132,15 @@ class StockController extends Controller
         try {
             $locationFilter = $request->input('location');
 
-            $query = "
-                SELECT 
-                    sl.id,
-                    sl.name as location_name,
-                    COUNT(DISTINCT sq.id) as total_lines,
-                    COALESCE(SUM(sq.quantity), 0) as total_quantity
-                FROM stock_location sl
-                LEFT JOIN stock_quant sq ON sl.id = sq.location_id
-                GROUP BY sl.id, sl.name
-                ORDER BY sl.name
-            ";
 
-            $locations = DB::connection('pgsql_odoo')->select($query);
+            $locations = $this->odooService->execute('stock.location', 'search_read', [[], ['id', 'name'], 0, 0]);
+
+            $locations = array_map(function ($l) {
+                return (object)[
+                    'id' => $l['id'] ?? null,
+                    'location_name' => $l['name'] ?? null,
+                ];
+            }, is_array($locations) ? $locations : []);
 
             return view('stocks.by-location', [
                 'locations' => $locations,
@@ -111,21 +160,50 @@ class StockController extends Controller
     public function export(Request $request)
     {
         try {
-            $stocks = DB::connection('pgsql_odoo')->select("
-                SELECT 
-                    pt.name as product_name,
-                    pp.default_code,
-                    sl.name as location_name,
-                    sw.name as warehouse_name,
-                    sq.quantity
-                FROM stock_quant sq
-                LEFT JOIN product_product pp ON sq.product_id = pp.id
-                LEFT JOIN product_template pt ON pp.product_tmpl_id = pt.id
-                LEFT JOIN stock_location sl ON sq.location_id = sl.id
-                LEFT JOIN stock_warehouse sw ON sl.warehouse_id = sw.id
-                WHERE sq.quantity > 0
-                ORDER BY sw.name, sl.name, pt.name
-            ");
+            $stocksRaw = $this->odooService->execute('stock.quant', 'search_read', [[['quantity', '>', 0]], ['id', 'product_id', 'quantity', 'location_id'], 0, 0]);
+
+            // map locations and warehouses
+            $locIds = [];
+            foreach (is_array($stocksRaw) ? $stocksRaw : [] as $s) {
+                if (isset($s['location_id']) && is_array($s['location_id'])) {
+                    $locIds[] = $s['location_id'][0];
+                }
+            }
+
+            $locationMap = [];
+            if (!empty($locIds)) {
+                $locations = $this->odooService->execute('stock.location', 'read', [$locIds, ['id', 'name', 'warehouse_id']]);
+                foreach (is_array($locations) ? $locations : [] as $loc) {
+                    $locationMap[$loc['id']] = [
+                        'name' => $loc['name'] ?? null,
+                        'warehouse_id' => isset($loc['warehouse_id'][0]) ? $loc['warehouse_id'][0] : null,
+                    ];
+                }
+            }
+
+            $warehouseMap = [];
+            $warehouses = $this->odooService->execute('stock.warehouse', 'search_read', [[], ['id', 'name'], 0, 0]);
+            foreach (is_array($warehouses) ? $warehouses : [] as $w) {
+                $warehouseMap[$w['id']] = $w['name'] ?? null;
+            }
+
+            $stocks = [];
+            foreach (is_array($stocksRaw) ? $stocksRaw : [] as $row) {
+                $prod = $row['product_id'] ?? null;
+                $prodName = is_array($prod) ? ($prod[1] ?? null) : null;
+                $prodCode = null;
+                $locId = is_array($row['location_id'] ?? null) ? ($row['location_id'][0] ?? null) : ($row['location_id'] ?? null);
+                $locName = $locationMap[$locId]['name'] ?? null;
+                $whName = $warehouseMap[$locationMap[$locId]['warehouse_id'] ?? null] ?? null;
+
+                $stocks[] = (object)[
+                    'product_name' => $prodName,
+                    'default_code' => $prodCode,
+                    'location_name' => $locName,
+                    'warehouse_name' => $whName,
+                    'quantity' => $row['quantity'] ?? 0,
+                ];
+            }
 
             // Create CSV
             $headers = [
