@@ -19,7 +19,9 @@ return new class extends Migration
                 $table->string('name');
                 $table->string('code')->nullable();
                 $table->decimal('price', 12, 2)->nullable();
-                $table->timestamps();
+                $table->text('image')->nullable();
+                $table->dateTime('created_at')->nullable();
+                $table->dateTime('updated_at')->nullable();
             });
         }
     }

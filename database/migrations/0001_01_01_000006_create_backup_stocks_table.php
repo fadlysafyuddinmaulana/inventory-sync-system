@@ -23,7 +23,8 @@ return new class extends Migration
                 $table->string('warehouse_name')->nullable();
                 $table->decimal('quantity', 12, 2)->default(0);
                 $table->decimal('reserved_quantity', 12, 2)->default(0);
-                $table->timestamps();
+                $table->dateTime('created_at')->nullable();
+                $table->dateTime('updated_at')->nullable();
             });
         }
     }

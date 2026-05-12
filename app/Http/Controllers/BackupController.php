@@ -47,7 +47,8 @@ class BackupController extends Controller
 
             $products = [];
             if (!empty($productIds) && is_array($productIds)) {
-                $products = $this->odooService->execute('product.template', 'read', [$productIds, ['id', 'name', 'default_code', 'list_price']]);
+                // include image_1920 (Odoo 14+), avoid requesting non-existing 'image' field
+                $products = $this->odooService->execute('product.template', 'read', [$productIds, ['id', 'name', 'default_code', 'list_price', 'image_1920']]);
             }
 
             $productCount = $this->backupProducts($products);
@@ -64,7 +65,11 @@ class BackupController extends Controller
             // Update backup log
             $backupLog->update([
                 'status' => 'success',
+                'product_count' => $productCount,
+                'stock_count' => $stockCount,
+                'warehouse_count' => $warehouseCount,
                 'total_data' => $productCount + $stockCount,
+                'backup_size' => null,
                 'completed_at' => Carbon::now(),
                 'message' => 'Backup berhasil dilakukan',
             ]);
@@ -81,6 +86,10 @@ class BackupController extends Controller
         } catch (\Exception $e) {
             $backupLog->update([
                 'status' => 'failed',
+                'product_count' => 0,
+                'stock_count' => 0,
+                'warehouse_count' => 0,
+                'total_data' => 0,
                 'completed_at' => Carbon::now(),
                 'message' => 'Backup gagal: ' . $e->getMessage(),
             ]);
@@ -100,12 +109,17 @@ class BackupController extends Controller
         $backupData = [];
 
         foreach ($products as $product) {
+            // image may be in image_1920 or image field; store as-is (base64 or url)
+            $image = data_get($product, 'image_1920') ?: data_get($product, 'image');
+
             $backupData[] = [
                 'product_id' => data_get($product, 'id'),
                 'name' => data_get($product, 'name'),
                 'code' => (string) data_get($product, 'default_code', ''),
                 'price' => data_get($product, 'list_price'),
+                'image' => $image,
                 'created_at' => Carbon::now(),
+                'updated_at' => Carbon::now(),
             ];
         }
 
@@ -150,6 +164,7 @@ class BackupController extends Controller
                 'quantity' => data_get($stock, 'quantity', 0),
                 'reserved_quantity' => data_get($stock, 'reserved_quantity', 0),
                 'created_at' => Carbon::now(),
+                'updated_at' => Carbon::now(),
             ];
         }
 

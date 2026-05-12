@@ -21,12 +21,13 @@ return new class extends Migration
                 $table->integer('stock_count')->default(0);
                 $table->integer('warehouse_count')->default(0);
                 $table->integer('total_data')->default(0);
-                $table->string('backup_size')->nullable(); // e.g., "245 MB"
-                $table->enum('status', ['pending', 'success', 'failed'])->default('pending');
+                $table->string('backup_size', 255)->nullable();
+                $table->string('status', 255)->default('pending');
                 $table->text('message')->nullable();
                 $table->dateTime('started_at')->nullable();
                 $table->dateTime('completed_at')->nullable();
-                $table->timestamps();
+                $table->dateTime('created_at')->nullable();
+                $table->dateTime('updated_at')->nullable();
             });
         }
     }
